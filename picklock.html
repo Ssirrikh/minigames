@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset='utf-8'>
+	<title>Picklock</title>
+	<style>
+        :root {
+            --color-hud : #33f0ff;
+            --color-success : #77ff46;
+            --color-fail : #dd1e28;
+        }
+    </style>
+</head>
+<body>
+
+    <script type='text/javascript'>
+
+        const MSG_INSTRUCTIONS = [
+            '[1] to start new lock on Easy',
+            '[2] to start new lock on Medium',
+            '[3] to start new lock on Hard',
+            '[[ use console for custom locks ]]',
+            '',
+            '[r] to re-gen new lock with current settings',
+            '',
+            'Controls:',
+            '  [Easy] Left,Right || A,D',
+            '   [Med] Left,Right,Up,Down || W,A,S,D',
+            '  [Hard] Left,Right,Up,Down,Space || W,A,S,D,Space'
+
+        ].join('\n');
+        
+        const randI = (min,max) => Math.floor(Math.random() * (max - min + 1)) + min;
+        const randInt = (min,max) => {
+            if (min > max) [min,max] = [max,min];
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function advance () {
+            console.log(`${lock.progress} / ${lock.combo.length}`);
+        }
+        function succeed () {
+            console.log(`Congrats, you picked the lock in ${lock.moves} moves!`);
+        }
+        function fail () {
+            console.log(`Wrong move, lock reset...`);
+        }
+
+
+        let lock = {
+            numDirs : undefined,
+            moves : 0,
+            progress : 0,
+            combo : [],
+            reset : (length, dirs) => {
+                const comboLength = Math.max(1, length ?? ((lock.combo.length>0) ? lock.combo.length : 8));
+                const numDirs = Math.max(1, (dirs ?? lock.numDirs ?? 4));
+                lock.numDirs = numDirs;
+                lock.moves = 0;
+                lock.progress = 0;
+                lock.combo = [];
+                for (let i = 0; i < comboLength; i++) {
+                    lock.combo.push( randInt(0,numDirs-1) );
+                }
+                console.log(`Lock is reset. (${numDirs} dirs, ${comboLength} moves long)`);
+            },
+            try : (dir) => {
+                if (lock.progress == lock.combo.length) {
+                    console.log('The lock is already picked...');
+                } else if (dir > lock.numDirs) {
+                    console.log(`That direction isn't used on this difficulty...`);
+                } else if (dir == lock.combo[lock.progress]) {
+                    lock.moves++;
+                    lock.progress++;
+                    (lock.progress == lock.combo.length) ? succeed() : advance();
+                } else {
+                    lock.moves++;
+                    lock.progress = 0;
+                    fail();
+                }
+            }
+        }
+
+        function setEasy () { lock.reset(8,2); }
+        function setMed  () { lock.reset(8,4); }
+        function setHard () { lock.reset(8,5); }
+
+        window.addEventListener('keydown', e => {
+            // console.log(e.key);
+            switch (e.key) {
+            // difficulty settings
+            case '1': setEasy(); break;
+            case '2': setMed();  break;
+            case '3': setHard(); break;
+            case 'r': lock.reset(); break;
+            // controls
+            case 'a':
+            case 'ArrowLeft':
+                lock.try(0); break;
+            case 'd':
+            case 'ArrowRight':
+                lock.try(1); break;
+            case 'w':
+            case 'ArrowUp':
+                lock.try(2); break;
+            case 's':
+            case 'ArrowDown':
+                lock.try(3); break;
+            case ' ':
+                lock.try(4); break;
+            }
+        });
+
+        // init
+        console.log(MSG_INSTRUCTIONS);
+        setEasy();
+        // console.log(lock.progress, lock.combo, lock.numDirs);
+
+    </script>
+
+</body>
