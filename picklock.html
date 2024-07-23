@@ -5,30 +5,114 @@
 	<title>Picklock</title>
 	<style>
         :root {
-            --color-hud : #33f0ff;
-            --color-success : #77ff46;
-            --color-fail : #dd1e28;
+            --color-hud: #33f0ff;
+            --color-success: #77ff46;
+            --color-fail: #dd1e28;
+        }
+
+        * {
+            color: var(--color-hud);
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Consolas, Courier, monospace;
+            /* font-weight: bold; */
+            white-space: pre;
+        }
+
+        body {
+            background-color: #111118;
+            min-height: 500px;
+        }
+
+        #log {
+            background-color: #33333308;
+            filter: drop-shadow(0 0 1px #0ff8);
+            position: absolute;
+            top: 1vmax;
+            left: 1vmax;
+            padding: 1rem;
+            overflow: hidden;
+        }
+        #log-border-top, #log-border-bot {
+            border: 1px solid var(--color-hud);
+            filter: drop-shadow(0 0 4px #00ffff);
+            display: inline-block;
+            position: absolute;
+            height: 1.25rem;
+            width: 100%;
+            left: 0;
+        }
+        #log-border-top {
+            border-bottom: none;
+            top: 0;
+        }
+        #log-border-bot {
+            border-top: none;
+            bottom: 0;
+        }
+
+        #lock-box {
+            border: 1px solid var(--color-hud);
+            border-radius: 50%;
+            display: inline-block;
+            position: absolute;
+            height: 80vmin;
+            width: 80vmin;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%,-50%);
+        }
+        .lock-pip {
+            border: 2px solid var(--color-hud);
+            border-radius: 50%;
+            display: inline-block;
+            position: absolute;
+            height: 1.25rem;
+            width: 1.25rem;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%,-50%);
         }
     </style>
 </head>
 <body>
 
+    <div id = 'log'>
+        <div id = 'log-border-top'></div>
+        <div id = 'log-border-bot'></div>
+    </div>
+
+    <div id='lock-box'>
+        <div class='lock-pip'></div>
+    </div>
+
     <script type='text/javascript'>
 
+        //// DOM ////
+
+        const msgLog = document.getElementById('log');
+        const lockBox = document.getElementById('lock-box');
+
         const MSG_INSTRUCTIONS = [
+            'DIFFICULTY',
+            '',
             '[1] to start new lock on Easy',
             '[2] to start new lock on Medium',
             '[3] to start new lock on Hard',
-            '[[ use console for custom locks ]]',
             '',
             '[r] to re-gen new lock with current settings',
             '',
-            'Controls:',
-            '  [Easy] Left,Right || A,D',
-            '   [Med] Left,Right,Up,Down || W,A,S,D',
-            '  [Hard] Left,Right,Up,Down,Space || W,A,S,D,Space'
+            'CONTROLS',
+            '',
+            '[Easy] Left,Right               || A,D',
+            '[ Med] Left,Right,Up,Down       || W,A,S,D',
+            '[Hard] Left,Right,Up,Down,Space || W,A,S,D,Space',
+            '',
+            '(( use console for custom locks ))'
 
         ].join('\n');
+        msgLog.innerHTML = MSG_INSTRUCTIONS + `<div id = 'log-border-top'></div><div id = 'log-border-bot'></div>`;
         
         const randI = (min,max) => Math.floor(Math.random() * (max - min + 1)) + min;
         const randInt = (min,max) => {
@@ -36,6 +120,25 @@
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
 
+        function spawnPips (numPips) {
+            const n = numPips ?? lock.combo.length;
+            const dTheta = 2*Math.PI / n;
+
+            let elemStr = '';
+            for (let i = 0; i < n; i++) {
+                const theta = i*dTheta - Math.PI/2 + dTheta;
+                elemStr += `<div id="pip-${i}" class="lock-pip" style="transform:rotate(${theta}rad)translate(200px)rotate(${-theta}rad)translate(-50%,-50%)"></div>`;
+            }
+            lockBox.innerHTML = elemStr;
+        }
+        function updatePips () {
+            const color = (lock.progress == lock.combo.length) ? 'var(--color-success)' : 'var(--color-hud)'; // will never be used for bg if lock just failed
+            for (let i = 0; i < lock.combo.length; i++) {
+                let elem = document.getElementById(`pip-${i}`);
+                elem.style.backgroundColor = (i < lock.progress) ? color : 'transparent';
+                elem.style.borderColor = (lock.failed) ? 'var(--color-fail)' : 'var(--color-hud)';
+            }
+        }
         function advance () {
             console.log(`${lock.progress} / ${lock.combo.length}`);
         }
@@ -52,6 +155,7 @@
             moves : 0,
             progress : 0,
             combo : [],
+            failed : false,
             reset : (length, dirs) => {
                 const comboLength = Math.max(1, length ?? ((lock.combo.length>0) ? lock.combo.length : 8));
                 const numDirs = Math.max(1, (dirs ?? lock.numDirs ?? 4));
@@ -59,12 +163,14 @@
                 lock.moves = 0;
                 lock.progress = 0;
                 lock.combo = [];
+                lock.failed = false;
                 for (let i = 0; i < comboLength; i++) {
                     lock.combo.push( randInt(0,numDirs-1) );
                 }
                 console.log(`Lock is reset. (${numDirs} dirs, ${comboLength} moves long)`);
             },
             try : (dir) => {
+                lock.failed = false;
                 if (lock.progress == lock.combo.length) {
                     console.log('The lock is already picked...');
                 } else if (dir > lock.numDirs) {
@@ -76,6 +182,7 @@
                 } else {
                     lock.moves++;
                     lock.progress = 0;
+                    lock.failed = true;
                     fail();
                 }
             }
@@ -89,32 +196,32 @@
             // console.log(e.key);
             switch (e.key) {
             // difficulty settings
-            case '1': setEasy(); break;
-            case '2': setMed();  break;
-            case '3': setHard(); break;
-            case 'r': lock.reset(); break;
+            case '1': setEasy(); updatePips(); break;
+            case '2': setMed();  updatePips(); break;
+            case '3': setHard(); updatePips(); break;
+            case 'r': lock.reset(); spawnPips(); break;
             // controls
             case 'a':
             case 'ArrowLeft':
-                lock.try(0); break;
+                lock.try(0); updatePips(); break;
             case 'd':
             case 'ArrowRight':
-                lock.try(1); break;
+                lock.try(1); updatePips(); break;
             case 'w':
             case 'ArrowUp':
-                lock.try(2); break;
+                lock.try(2); updatePips(); break;
             case 's':
             case 'ArrowDown':
-                lock.try(3); break;
+                lock.try(3); updatePips(); break;
             case ' ':
-                lock.try(4); break;
+                lock.try(4); updatePips(); break;
             }
         });
 
         // init
         console.log(MSG_INSTRUCTIONS);
         setEasy();
-        // console.log(lock.progress, lock.combo, lock.numDirs);
+        spawnPips();
 
     </script>
 
