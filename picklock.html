@@ -74,6 +74,16 @@
             left: 50%;
             transform: translate(-50%,-50%);
         }
+
+        #lock-icon-center {
+            display: inline-block;
+            position: absolute;
+            height: 20rem;
+            width: 20rem;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%,-50%);
+        }
     </style>
 </head>
 <body>
@@ -82,10 +92,12 @@
         <div id = 'log-border-top'></div>
         <div id = 'log-border-bot'></div>
     </div>
-
     <div id='lock-box'>
         <div class='lock-pip'></div>
     </div>
+    <svg id='lock-icon-center' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>
+		<path id='icon-locked' fill='#0099ff' fill-opacity='1' d='M 20 40 L 20 80 L 80 80 L 80 40 L 70 40 L 70 30 C 70 20 60 10 50 10 C 40 10 30 20 30 30 L 30 40 Z'></path> <!-- Cxyxyxy Cxyxyxy -->
+	</svg>
 
     <script type='text/javascript'>
 
