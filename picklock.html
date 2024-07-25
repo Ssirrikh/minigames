@@ -96,7 +96,7 @@
         <div class='lock-pip'></div>
     </div>
     <svg id='lock-icon-center' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>
-		<path id='icon-locked' fill='#0099ff' fill-opacity='1' d='M 20 40 L 20 80 L 80 80 L 80 40 L 70 40 L 70 30 C 70 20 60 10 50 10 C 40 10 30 20 30 30 L 30 40 Z'></path> <!-- Cxyxyxy Cxyxyxy -->
+        <path id='lock-icon' fill='#ff00ff' fill-opacity='1' d='M 20 40 L 20 80 L 80 80 L 80 40 L 38 40 L 38 30 C 38 24 43 19 50 19 C 57 19 62 24 62 30 L 62 40 L 72 40 L 72 30 C 72 18 62 10 50 10 C 38 10 28 18 28 30 L 28 40 Z'></path>
 	</svg>
 
     <script type='text/javascript'>
@@ -105,6 +105,10 @@
 
         const msgLog = document.getElementById('log');
         const lockBox = document.getElementById('lock-box');
+        const lockIcon = document.getElementById('lock-icon-center');
+
+        const SVG_LOCKED = 'M 20 40 L 20 80 L 80 80 L 80 40 L 38 40 L 38 30 C 38 24 43 19 50 19 C 57 19 62 24 62 30 L 62 40 L 72 40 L 72 30 C 72 18 62 10 50 10 C 38 10 28 18 28 30 L 28 40 Z';
+        const SVG_UNLOCKED = 'M 20 45 L 20 85 L 80 85 L 80 45 L 38 45 L 38 25 C 38 19 43 14 50 14 C 57 14 62 19 62 25 L 62 35 L 72 35 L 72 25 C 72 13 62 5 50 5 C 38 5 28 13 28 25 L 28 45 Z';
 
         const MSG_INSTRUCTIONS = [
             'DIFFICULTY',
@@ -126,6 +130,11 @@
         ].join('\n');
         msgLog.innerHTML = MSG_INSTRUCTIONS + `<div id = 'log-border-top'></div><div id = 'log-border-bot'></div>`;
         
+
+        const CSSVars = {
+            get : (k) => getComputedStyle(document.documentElement).getPropertyValue(k),
+            set : (k,v) => document.documentElement.style.setProperty(k,v)
+        };
         const randI = (min,max) => Math.floor(Math.random() * (max - min + 1)) + min;
         const randInt = (min,max) => {
             if (min > max) [min,max] = [max,min];
@@ -148,8 +157,17 @@
             for (let i = 0; i < lock.combo.length; i++) {
                 let elem = document.getElementById(`pip-${i}`);
                 elem.style.backgroundColor = (i < lock.progress) ? color : 'transparent';
-                elem.style.borderColor = (lock.failed) ? 'var(--color-fail)' : 'var(--color-hud)';
+                elem.style.borderColor = (lock.failed) ? 'var(--color-fail)' : color;
             }
+        }
+        function updateLockIcon () {
+            const color =
+                (lock.progress == lock.combo.length) ? CSSVars.get('--color-success') :
+                (lock.failed) ? CSSVars.get('--color-fail') :
+                CSSVars.get('--color-hud');
+            lockIcon.innerHTML = (lock.progress == lock.combo.length)
+                ? (`<path id='lock-icon' fill='${color}' fill-opacity='1' d='${SVG_UNLOCKED}'></path>`)
+                : (`<path id='lock-icon' fill='${color}' fill-opacity='1' d='${SVG_LOCKED}'></path>`);
         }
         function advance () {
             console.log(`${lock.progress} / ${lock.combo.length}`);
@@ -208,25 +226,27 @@
             // console.log(e.key);
             switch (e.key) {
             // difficulty settings
-            case '1': setEasy(); updatePips(); break;
-            case '2': setMed();  updatePips(); break;
-            case '3': setHard(); updatePips(); break;
-            case 'r': lock.reset(); spawnPips(); break;
+            case '1': setEasy(); updatePips(); updateLockIcon(); break;
+            case '2': setMed();  updatePips(); updateLockIcon(); break;
+            case '3': setHard(); updatePips(); updateLockIcon(); break;
+            case 'r': lock.reset(); spawnPips(); updateLockIcon(); break;
             // controls
             case 'a':
             case 'ArrowLeft':
-                lock.try(0); updatePips(); break;
+                lock.try(0); updatePips(); updateLockIcon(); break;
             case 'd':
             case 'ArrowRight':
-                lock.try(1); updatePips(); break;
+                lock.try(1); updatePips(); updateLockIcon(); break;
             case 'w':
             case 'ArrowUp':
-                lock.try(2); updatePips(); break;
+                lock.try(2); updatePips(); updateLockIcon(); break;
             case 's':
             case 'ArrowDown':
-                lock.try(3); updatePips(); break;
+                lock.try(3); updatePips(); updateLockIcon(); break;
             case ' ':
-                lock.try(4); updatePips(); break;
+                lock.try(4); updatePips(); updateLockIcon(); break;
+            // debug
+            // case '`': toggleLock(); break;
             }
         });
 
@@ -234,6 +254,7 @@
         console.log(MSG_INSTRUCTIONS);
         setEasy();
         spawnPips();
+        updateLockIcon();
 
     </script>
 
