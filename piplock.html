@@ -239,7 +239,7 @@
         
         const REGEX_VALID_GAMESTATE = /^([0-4](?:\.5)?)-([0-4](?:\.5)?)-([0-4](?:\.5)?)$/;
         function isValidGamestate (gamestate) {
-            const [l,u,r] = gamestate.split('-').map(x => parseFloat(x));
+            const [l,u,r] = gamestate.map(x => parseFloat(x));
             if (l+u+r != 6) return false; // always 6 pips total
             if (l > 4 || u > 4 || r > 4) return false; // pip-stack has between 0 and 4 pips
             if (l < 0 || u < 0 || r < 0) return false;
@@ -263,28 +263,40 @@
         const MOVE_DIR_RIGHT = 3;
         function newGamestate (start,dir) {
             const [l,u,r] = start.map(x => parseFloat(x));
-            console.log(l,u,r);
+            // console.log(l,u,r);
             if (dir == MOVE_DIR_LEFT) {
-                if (l == 4) return [l,u,r]; // left corner (420,402,411) can't move left
-                if (l == 3.5 && u == 0.5) return [l+0.5,u-0.5,r]; // 
-                if (l == 3.5 && r == 0.5) return [l+0.5,u,r-0.5]; // 
-                if (u == 0) return [l+1,u,r-1]; // if up is empty, pull both half-pips from right
-                if (r == 0) return [l+1,u-1,r]; // if right is empty, pull both half-pips from up
-                return [l+1,u-0.5,r-0.5]; // pull half-pips normally
+                if (l == 4) return [l,u,r]; // left corner full (420,402,411) can't draw more pips
+                if (l == 3.5) { // draw single half-pip from lowest non-zero pipstack
+                    if (u == 0) return [l+0.5,u,r-0.5];
+                    if (r == 0) return [l+0.5,u-0.5,r];
+                    return (u < r) ? [l+0.5,u-0.5,r] : [l+0.5,u,r-0.5];
+                } else { // draw two half-pips, one from each pipstack if possible
+                    if (u == 0) return [l+1,u,r-1]; // if up is empty, pull both half-pips from right
+                    if (r == 0) return [l+1,u-1,r]; // if right is empty, pull both half-pips from up
+                    return [l+1,u-0.5,r-0.5]; // pull half-pips normally
+                }
             } else if (dir == MOVE_DIR_UP) {
                 if (u == 4) return [l,u,r]; // upper corner (240,042,141) can't move up
-                if (u == 3.5 && l == 0.5) return [l-0.5,u+0.5,r]; // 
-                if (u == 3.5 && r == 0.5) return [l,u+0.5,r-0.5]; // 
-                if (l == 0) return [l,u+1,r-1]; // if left is empty, pull both half-pips from right
-                if (r == 0) return [l-1,u+1,r]; // if right is empty, pull both half-pips from left
-                return [l-0.5,u+1,r-0.5]; // pull half-pips normally
+                if (u == 3.5) { // draw single half-pip from lowest non-zero pipstack
+                    if (l == 0) return [l,u+0.5,r-0.5];
+                    if (r == 0) return [l-0.5,u+0.5,r];
+                    return (l < r) ? [l-0.5,u+0.5,r] : [l,u+0.5,r-0.5];
+                } else { // draw two half-pips, one from each pipstack if possible
+                    if (l == 0) return [l,u+1,r-1]; // if left is empty, pull both half-pips from right
+                    if (r == 0) return [l-1,u+1,r]; // if right is empty, pull both half-pips from left
+                    return [l-0.5,u+1,r-0.5]; // pull half-pips normally
+                }
             } else if (dir == MOVE_DIR_RIGHT) {
                 if (r == 4) return [l,u,r]; // right corner (204,024,114) can't move right
-                if (r == 3.5 && l == 0.5) return [l-0.5,u,r+0.5]; // 
-                if (r == 3.5 && u == 0.5) return [l,u-0.5,r+0.5]; // 
-                if (l == 0) return [l,u-1,r+1]; // if left is empty, pull both half-pips from up
-                if (u == 0) return [l-1,u,r+1]; // if up is empty, pull both half-pips from left
-                return [l-0.5,u-0.5,r+1]; // pull half-pips normally
+                if (r == 3.5) { // draw single half-pip from lowest non-zero pipstack
+                    if (l == 0) return [l,u-0.5,r+0.5];
+                    if (u == 0) return [l-0.5,u,r+0.5];
+                    return (l < u) ? [l-0.5,u,r+0.5] : [l,u-0.5,r+0.5];
+                } else { // draw two half-pips, one from each pipstack if possible
+                    if (l == 0) return [l,u-1,r+1]; // if left is empty, pull both half-pips from up
+                    if (u == 0) return [l-1,u,r+1]; // if up is empty, pull both half-pips from left
+                    return [l-0.5,u-0.5,r+1]; // pull half-pips normally
+                }
             } else if (dir == MOVE_DIR_RESET) {
                 return [2,2,2];
             } else {
@@ -296,6 +308,8 @@
         // console.log( newGamestate([2,2,2],MOVE_DIR_RIGHT) );
         // console.log( newGamestate([4,2,0],MOVE_DIR_LEFT) );
 
+        
+
         class PiplockSolver {
             constructor () {
                 this.initialState = '2-2-2';
@@ -303,13 +317,65 @@
                 // this.transitions = {}; // is there any point mapping this since they're cheap to calc?
             }
             map () {
+                const MOVE_CHARS = ['-','L','U','R']; // reset,left,up,right
+                function equivalentStates (s0,s1) {
+                    const [state0,len0,path0] = s0;
+                    const [l0,u0,r0] = state0;
+                    const [state1,len1,path1] = s1;
+                    const [l1,u1,r1] = state1;
+                    return (l0 != l1 || u0 != u1 || r0 != r1);
+                }
                 // BFS
-                let queue = [ [2,2,2] ];
+                let overflowProt = 1000;
+                let queue = [ [[2,2,2], 0, '', '2-2-2'] ]; // [gamestate, pathlen, inputs, path]
+                while (queue.length > 0 && overflowProt > 0) {
+                    overflowProt--;
+                    const [currState,currLen,currInputs,currPath] = queue.shift();
+                    for (let dir of [MOVE_DIR_LEFT,MOVE_DIR_UP,MOVE_DIR_RIGHT]) {
+                        const nextState = newGamestate(currState,dir);
+                        const nextLen = currLen + 1;
+                        const nextInputs = currInputs + MOVE_CHARS[dir];
+                        const nextStr = nextState.join('-');
+                        const nextPath = currPath + '=>' + nextStr;
+
+                        // if (!isValidGamestate(nextState)) {
+                        //     console.error(`ERR ${nextStr} by ${dir} from ${nextPath} (len ${nextLen})`);
+                        // } else
+
+                        if (!this.gamestates[nextStr]) { // if unvisited, auto pass
+                            if (!isValidGamestate(nextState)) {
+                                console.error(`ERR ${nextStr} by ${MOVE_CHARS[dir]} from ${nextPath} (len ${nextLen})`);
+                                continue;
+                            } else {
+                                console.log(`FIRST ${nextStr} by ${MOVE_CHARS[dir]} from ${nextPath} (len ${nextLen})`);
+                            }
+                            this.gamestates[nextStr] = [nextState,nextLen,nextInputs,nextPath];
+                            queue.push([nextState,nextLen,nextInputs,nextPath]);
+                        } else if (nextLen < this.gamestates[nextStr][1]) { // if shorter than previous optimum, replace it
+                            console.debug(`REPLACE ${nextStr} by ${MOVE_CHARS[dir]} from ${this.gamestates[nextStr][2]} to ${nextPath} (len ${this.gamestates[nextStr][1]} to ${nextLen})`);
+                            this.gamestates[nextStr] = [nextState,nextLen,nextInputs,nextPath];
+                            queue.push([nextState,nextLen,nextInputs,nextPath]);
+                        } else {
+                            console.warn(`FAIL ${nextStr} by ${MOVE_CHARS[dir]} from ${nextPath} (len ${nextLen})`);
+                        }
+                    }
+                }
+                if (overflowProt <= 0) {
+                    console.warn(`WARN Triggered loop overflow protection; loop may be infinite.`);
+                    console.log(queue);
+                }
+                console.log(this.gamestates);
             }
-            shortestPath (end) {
+            minMovesTo (end) {
+                const start = [2,2,2];
+            }
+            shortestPathTo (end) {
                 const start = [2,2,2];
             }
         }
+
+        let solver = new PiplockSolver();
+        solver.map();
 
 
         let gamestate = [2,2,2];
