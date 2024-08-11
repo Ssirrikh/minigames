@@ -313,8 +313,8 @@
         class PiplockSolver {
             constructor () {
                 this.initialState = '2-2-2';
-                this.gamestates = {};
-                // this.transitions = {}; // is there any point mapping this since they're cheap to calc?
+                this.gamestates = [];
+                this.gamestateData = {};
             }
             map () {
                 const MOVE_CHARS = ['-','L','U','R']; // reset,left,up,right
@@ -337,23 +337,18 @@
                         const nextInputs = currInputs + MOVE_CHARS[dir];
                         const nextStr = nextState.join('-');
                         const nextPath = currPath + '=>' + nextStr;
-
-                        // if (!isValidGamestate(nextState)) {
-                        //     console.error(`ERR ${nextStr} by ${dir} from ${nextPath} (len ${nextLen})`);
-                        // } else
-
-                        if (!this.gamestates[nextStr]) { // if unvisited, auto pass
+                        if (!this.gamestateData[nextStr]) { // if unvisited, auto pass
                             if (!isValidGamestate(nextState)) {
                                 console.error(`ERR ${nextStr} by ${MOVE_CHARS[dir]} from ${nextPath} (len ${nextLen})`);
                                 continue;
                             } else {
                                 console.log(`FIRST ${nextStr} by ${MOVE_CHARS[dir]} from ${nextPath} (len ${nextLen})`);
                             }
-                            this.gamestates[nextStr] = [nextState,nextLen,nextInputs,nextPath];
+                            this.gamestateData[nextStr] = [nextState,nextLen,nextInputs,nextPath];
                             queue.push([nextState,nextLen,nextInputs,nextPath]);
-                        } else if (nextLen < this.gamestates[nextStr][1]) { // if shorter than previous optimum, replace it
-                            console.debug(`REPLACE ${nextStr} by ${MOVE_CHARS[dir]} from ${this.gamestates[nextStr][2]} to ${nextPath} (len ${this.gamestates[nextStr][1]} to ${nextLen})`);
-                            this.gamestates[nextStr] = [nextState,nextLen,nextInputs,nextPath];
+                        } else if (nextLen < this.gamestateData[nextStr][1]) { // if shorter than previous optimum, replace it
+                            console.debug(`REPLACE ${nextStr} by ${MOVE_CHARS[dir]} from ${this.gamestateData[nextStr][2]} to ${nextPath} (len ${this.gamestateData[nextStr][1]} to ${nextLen})`);
+                            this.gamestateData[nextStr] = [nextState,nextLen,nextInputs,nextPath];
                             queue.push([nextState,nextLen,nextInputs,nextPath]);
                         } else {
                             console.warn(`FAIL ${nextStr} by ${MOVE_CHARS[dir]} from ${nextPath} (len ${nextLen})`);
@@ -361,21 +356,39 @@
                     }
                 }
                 if (overflowProt <= 0) {
-                    console.warn(`WARN Triggered loop overflow protection; loop may be infinite.`);
+                    console.error(`WARN Triggered loop overflow protection; loop may be infinite.`);
                     console.log(queue);
+                } else {
+                    this.gamestates = Object.keys(this.gamestateData);
                 }
-                console.log(this.gamestates);
+                console.log(this.gamestateData);
             }
             minMovesTo (end) {
-                const start = [2,2,2];
+                return this.gamestateData[end][1]; // [gamestate, pathlen, inputs, path]
             }
             shortestPathTo (end) {
-                const start = [2,2,2];
+                return this.gamestateData[end][2]; // [gamestate, pathlen, inputs, path]
+            }
+        }
+        class PiplockController {
+            constructor () {
+                this.moves = 0;
+                this.combo = [];
+                this.gamestate = [2,2,2];
+                this.reset();
+            }
+            reset (minPathLen = 3, maxPathLen = 7) {
+                let gamestate = solver.gamestates.keys()
+            }
+            try (dir) {
+                this.gamestate = newGamestate(this.gamestate,dir);
+                return this.gamestate;
             }
         }
 
         let solver = new PiplockSolver();
         solver.map();
+        let controller = new PiplockController();
 
 
         let gamestate = [2,2,2];
