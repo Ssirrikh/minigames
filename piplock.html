@@ -198,6 +198,12 @@
             left: 50%;
             transform: translate(-50%,-50%);
         }
+        #visualizer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%,-50%);
+        }
 
         /* CONSOLE WIDGET (TOP-LEFT) */
         #log {
@@ -232,6 +238,12 @@
             height: 2em;
         }
 
+
+        @keyframes spin {
+            0% { transform: translate(50%,50%) rotate(0deg); }
+            100% { transform: translate(50%,50%) rotate(360deg); }
+        }
+
     </style>
 </head>
 <body>
@@ -244,8 +256,13 @@
     <div id='lock-box'>
         <div id='pip-title'>DISTANCE</div>
         <div id='pip-distance'>5.505</div>
+        <svg id='visualizer' viewBox='0 0 100 100' preserveAspectRatio='none' width='250' height='250'>
+            <g id='visualizer-svg' fill='none' stroke='#fca558' stroke-width='1' transform='translate(50 50)'>
+                <circle cx='0' cy='0' r='48'/>
+            </g>
+        </svg>
         <div id='pip-widget' class='flex-row'>
-            <div class='flex-col pipstack-container'>
+            <div id='pipstack-0' class='flex-col pipstack-container' style='position:relative;'>
                 <div class='flex-row pipstack'>
                     <div id='pip-0-0' class='pip'></div>
                     <div id='pip-0-1' class='pip'></div>
@@ -254,7 +271,7 @@
                 </div>
                 <div id='pip-label-0' style='text-align:center;'>L</div>
             </div>
-            <div class='flex-col pipstack-container' style='position:relative;top:-2em;'>
+            <div id='pipstack-1' class='flex-col pipstack-container' style='position:relative;top:-2em;'>
                 <div class='flex-row pipstack'>
                     <div id='pip-1-0' class='pip'></div>
                     <div id='pip-1-1' class='pip'></div>
@@ -263,7 +280,7 @@
                 </div>
                 <div id='pip-label-1' style='text-align:center;'>U</div>
             </div>
-            <div class='flex-col pipstack-container'>
+            <div id='pipstack-2' class='flex-col pipstack-container' style='position:relative;'>
                 <div class='flex-row pipstack'>
                     <div id='pip-2-0' class='pip'></div>
                     <div id='pip-2-1' class='pip'></div>
@@ -290,6 +307,7 @@
         //// DOM ////
         const msgLog = document.getElementById('log');
         const lockBox = document.getElementById('lock-box');
+        const svg = document.getElementById('visualizer-svg');
         const pipTitleTop = document.getElementById('pip-title');
         const pipTitleBot = document.getElementById('pip-distance');
         const pipElems = [
@@ -311,6 +329,7 @@
             '[S] or [DownArrow] to return to starting position',
             '',
             '[R] for new pip-lock with current settings',
+            '[`] to toggle alternate UI',
             '',
             '(All combos reachable in 7 moves or less. Good luck!)'
 
@@ -325,6 +344,39 @@
         const randInt = (min,max) => {
             if (min > max) [min,max] = [max,min];
             return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function svgStr (l = 100, offsetY = 1) {
+            // sidelengths of subtriangles
+            const h = l / 2;
+            const r = h * Math.sqrt(3);
+            // triangular interpolation w/ barycentric coords (https://codeplea.com/triangular-interpolation)
+            const w = controller.gamestate.map(p => p/6); // weights are pips as percent-of-total (6 total pips) s.t. w0+w1+w2=1
+            const v = [{x:-r,y:h+offsetY}, {x:0,y:-l+offsetY}, {x:r,y:h+offsetY}]; // vertices of triangle
+            const px = w[0]*v[0].x + w[1]*v[1].x + w[2]*v[2].x;
+            const py = w[0]*v[0].y + w[1]*v[1].y + w[2]*v[2].y;
+            // percent-of-max distance factor: distFromSolution / maxDistPossible
+            const distFac = 1 - (controller.distance / 5.5); // max observed was 5.339; build a solver for this eventually
+            // console.log(`dist fac ${distFac}`);
+
+            // triangular frame
+            const frameStr = `<polygon points='${-r},${h+offsetY} 0,${-l+offsetY} ${r},${h+offsetY}'/>`; // offset by linewidth so tip of tri doesn't go outside canvas
+            // influence tracers
+            const interpolationStr = `<path d='`
+                + `M ${v[0].x} ${v[0].y} L ${px} ${py} `
+                + `M ${v[1].x} ${v[1].y} L ${px} ${py} `
+                + `M ${v[2].x} ${v[2].y} L ${px} ${py}`
+            + `' stroke-width='0.5' opacity='${0.5}'/>`;
+            // current location (circle)
+            const locStr = ``; // `<circle fill='#fca558' cx='${px}' cy='${py}' r='1.0' opacity='${distFac}'/>`;
+            
+            return frameStr + interpolationStr + locStr;
+        }
+        // const SVG_FRAME = svgStr(50);
+        // svg.innerHTML = SVG_FRAME;
+
+        function updateSVG () {
+            svg.innerHTML = svgStr(50);
         }
 
         function updatePips () {
@@ -347,12 +399,18 @@
                 pipLabels[pipstack].innerHTML = controller.gamestate[pipstack];
             }
         }
-       
-        function advance () {
-            console.log(`Sweet spot is ${lock.dist.toFixed(1)} away...`);
-        }
-        function succeed () {
-            console.log(`Congrats, you picked the lock in ${lock.moves} moves!`);
+
+        let dbg_useAltSpacing = false;
+        function toggleAltSpacing () {
+            dbg_useAltSpacing = !dbg_useAltSpacing;
+
+            document.getElementById('visualizer').style.top = (dbg_useAltSpacing) ? '62%' : '50%';
+            document.getElementById('pipstack-0').style.top = (dbg_useAltSpacing) ? '-1em' : '0';
+            document.getElementById('pipstack-1').style.top = (dbg_useAltSpacing) ? '-16.5em' : '-2em';
+            document.getElementById('pipstack-2').style.top = (dbg_useAltSpacing) ? '-1em' : '0';
+            
+            document.getElementById('pipstack-0').style.left = (dbg_useAltSpacing) ? '-3em' : '0';
+            document.getElementById('pipstack-2').style.left = (dbg_useAltSpacing) ? '3em' : '0';
         }
         
         //
@@ -503,8 +561,14 @@
                 const dy = this.gamestate[1]-this.combo[1];
                 const dz = this.gamestate[2]-this.combo[2];
                 return Math.sqrt(dx*dx + dy*dy + dz*dz);
+                //// current max observed dist (we should really build a solver for this) ////
+                // 2.5,0,3.5 -> 2,4,0
+                // delta = 0.5 + 4 + 3.5
+                // dist = Math.sqrt(0.5*0.5 + 4*4 + 3.5*3.5) = 5.3
             }
             get succeeded () { return this.combo[0]==this.gamestate[0] && this.combo[1]==this.gamestate[1] && this.combo[2]==this.gamestate[2]; }
+            get minMoves () { return solver.minMovesTo(this.combo.join('-')); }
+            get difficulty () { return (this.minMoves <= 4) ? 'Easy' : 'Hard'; }
             reset (minPathLen = 3, maxPathLen = 7) {
                 let gamestate = '2-2-2';
                 while (solver.gamestateData[gamestate][1] < minPathLen || solver.gamestateData[gamestate][1] > maxPathLen) { // [gamestate, pathlen, inputs, path]
@@ -512,7 +576,7 @@
                 }
                 this.combo = gamestate.split('-');
                 this.gamestate = [2,2,2];
-                console.log(`Lock reset. Solvable in ${solver.gamestateData[gamestate][1]} moves.`);
+                console.log(`Lock reset. Solvable in ${this.minMoves} moves.`);
             }
             try (dir) {
                 if (this.succeeded) {
@@ -541,18 +605,19 @@
             switch (e.key) {
             // controls
             case 'a':
-            case 'ArrowLeft':  controller.try(MOVE_DIR_LEFT);  updatePips(); controlsLeft.style.borderWidth = '4px'; break;
+            case 'ArrowLeft':  controller.try(MOVE_DIR_LEFT);  updatePips(); updateSVG(); controlsLeft.style.borderWidth = '4px'; break;
             case 'd':
-            case 'ArrowRight': controller.try(MOVE_DIR_RIGHT); updatePips(); controlsRight.style.borderWidth = '4px'; break;
+            case 'ArrowRight': controller.try(MOVE_DIR_RIGHT); updatePips(); updateSVG(); controlsRight.style.borderWidth = '4px'; break;
             case 'w':
-            case 'ArrowUp':    controller.try(MOVE_DIR_UP);    updatePips(); controlsUp.style.borderWidth = '4px'; break;
+            case 'ArrowUp':    controller.try(MOVE_DIR_UP);    updatePips(); updateSVG(); controlsUp.style.borderWidth = '4px'; break;
             case 's':
-            case 'ArrowDown':  controller.try(MOVE_DIR_RESET); updatePips(); controlsDown.style.borderWidth = '4px'; break;
-            case 'r': controller.reset(); updatePips(); break;
+            case 'ArrowDown':  controller.try(MOVE_DIR_RESET); updatePips(); updateSVG(); controlsDown.style.borderWidth = '4px'; break;
+            case 'r': controller.reset(); updatePips(); updateSVG(); break;
             
             // debug
             case '`':
                 console.log('DEV KEY');
+                toggleAltSpacing();
                 break;
             }
         });
@@ -572,8 +637,10 @@
 
         // init
         console.log(MSG_INSTRUCTIONS);
-        controller.reset();
+        // controller.reset();
         updatePips();
+        updateSVG();
+        // pipTitleTop.innerHTML = `New lock. Solvable in ${controller.minMoves} moves.`;
 
     </script>
 
