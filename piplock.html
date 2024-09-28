@@ -238,6 +238,15 @@
             height: 2em;
         }
 
+        /* INFO WIDGET (BOTTOM-RIGHT) */
+        #info {
+            filter: var(--filter-glow-hud);
+            position: absolute;
+            bottom: 2em;
+            right: 2em;
+            text-align: center;
+        }
+
 
         @keyframes spin {
             0% { transform: translate(50%,50%) rotate(0deg); }
@@ -290,16 +299,26 @@
                 <div id='pip-label-2' style='text-align:center;'>R</div>
             </div>
         </div>
-        <div id='pip-reset'>RESET</div>
+        <div id='pip-reset' onclick='tryMove(MOVE_DIR_RESET)'>RESET</div>
     </div>
 
+    <!-- bottom left: controls visualizer -->
     <div id='controls-widget' class='flex-col'> <!-- element is only 50% as bright if not positioned, for some reason -->
-        <div id='controls-up' class='controls-key' onclick='tryGuess(2)'>W</div>
+        <div id='controls-up' class='controls-key' onclick='tryMove(MOVE_DIR_UP)'>W</div>
         <div class='flex-row' style='justify-content:center; gap:0.5em;'>
-            <div id='controls-left' class='controls-key' onclick='tryGuess(0)'>A</div>
-            <div id='controls-down' class='controls-key' onclick='tryGuess(3)'>S</div>
-            <div id='controls-right' class='controls-key' onclick='tryGuess(1)'>D</div>
+            <div id='controls-left' class='controls-key' onclick='tryMove(MOVE_DIR_LEFT)'>A</div>
+            <div id='controls-down' class='controls-key' onclick='tryMove(MOVE_DIR_RESET)'>S</div>
+            <div id='controls-right' class='controls-key' onclick='tryMove(MOVE_DIR_RIGHT)'>D</div>
         </div>
+    </div>
+
+    <!-- bottom right: level info -->
+    <div id='info' class='bordered-widget'>
+        Solvable in _ moves.
+        You have made __.
+        Too hard? Press [R] to generate a new lock.
+        <div class='frame-top'></div>
+        <div class='frame-bot'></div>
     </div>
 
     <script type='text/javascript'>
@@ -321,6 +340,8 @@
         const controlsLeft = document.getElementById('controls-left');
         const controlsDown = document.getElementById('controls-down');
         const controlsRight = document.getElementById('controls-right');
+        // info widget
+        const info = document.getElementById('info');
 
         const MSG_INSTRUCTIONS = [
             'CONTROLS',
@@ -329,10 +350,8 @@
             '[S] or [DownArrow] to return to starting position',
             '',
             '[R] for new pip-lock with current settings',
-            '[`] to toggle alternate UI',
-            '',
-            '(All combos reachable in 7 moves or less. Good luck!)'
-
+            '[H] for a hint (check bottom-right)',
+            '[`] to toggle alternate UI'
         ].join('\n');
         msgLog.innerHTML = MSG_INSTRUCTIONS + `<div class = 'frame-top'></div><div class = 'frame-bot'></div>`;
 
@@ -398,6 +417,16 @@
                 // pip label
                 pipLabels[pipstack].innerHTML = controller.gamestate[pipstack];
             }
+        }
+
+        function updateUI () {
+            const moveStr = `You've made ${controller.moves} moves.`;
+            const hintStr = (controller.usedHint)
+                ? (`Solvable in ${controller.minMoves}.` + (controller.minMoves<=4 ? `` : `\n(learn how to take a half-step)`))
+                : `Need a hint? Press [H].`;
+            info.innerHTML = `${moveStr}\n\n${hintStr}<div class = 'frame-top'></div><div class = 'frame-bot'></div>`;
+            // info.innerHTML = `Solvable in ${controller.minMoves} moves.\nYou have made ${controller.moves}.<div class = 'frame-top'></div><div class = 'frame-bot'></div>`;
+            // info.innerHTML = `You've made ${controller.moves} moves.\n(solvable in ${controller.minMoves})<div class = 'frame-top'></div><div class = 'frame-bot'></div>`;
         }
 
         let dbg_useAltSpacing = false;
@@ -551,6 +580,7 @@
         }
         class PiplockController {
             constructor () {
+                this.usedHint = false;
                 this.moves = 0;
                 this.combo = [];
                 this.gamestate = [2,2,2];
@@ -574,6 +604,8 @@
                 while (solver.gamestateData[gamestate][1] < minPathLen || solver.gamestateData[gamestate][1] > maxPathLen) { // [gamestate, pathlen, inputs, path]
                     gamestate = solver.gamestates[randInt(0,solver.gamestates.length-1)];
                 }
+                this.usedHint = false;
+                this.moves = 0;
                 this.combo = gamestate.split('-');
                 this.gamestate = [2,2,2];
                 console.log(`Lock reset. Solvable in ${this.minMoves} moves.`);
@@ -592,11 +624,23 @@
                 }
                 return this.gamestate;
             }
+            getHint () {
+                this.usedHint = true;
+                return this.minMoves;
+            }
         }
 
         let solver = new PiplockSolver();
         solver.map();
         let controller = new PiplockController();
+
+
+        function tryMove (dir) {
+            controller.try(dir);
+            updatePips();
+            updateSVG();
+            updateUI();
+        }
 
 
         let dbgToggle = true;
@@ -605,14 +649,15 @@
             switch (e.key) {
             // controls
             case 'a':
-            case 'ArrowLeft':  controller.try(MOVE_DIR_LEFT);  updatePips(); updateSVG(); controlsLeft.style.borderWidth = '4px'; break;
+            case 'ArrowLeft':  tryMove(MOVE_DIR_LEFT); controlsLeft.style.borderWidth = '4px'; break;
             case 'd':
-            case 'ArrowRight': controller.try(MOVE_DIR_RIGHT); updatePips(); updateSVG(); controlsRight.style.borderWidth = '4px'; break;
+            case 'ArrowRight': tryMove(MOVE_DIR_RIGHT); controlsRight.style.borderWidth = '4px'; break;
             case 'w':
-            case 'ArrowUp':    controller.try(MOVE_DIR_UP);    updatePips(); updateSVG(); controlsUp.style.borderWidth = '4px'; break;
+            case 'ArrowUp':    tryMove(MOVE_DIR_UP); controlsUp.style.borderWidth = '4px'; break;
             case 's':
-            case 'ArrowDown':  controller.try(MOVE_DIR_RESET); updatePips(); updateSVG(); controlsDown.style.borderWidth = '4px'; break;
-            case 'r': controller.reset(); updatePips(); updateSVG(); break;
+            case 'ArrowDown':  tryMove(MOVE_DIR_RESET); controlsDown.style.borderWidth = '4px'; break;
+            case 'r': controller.reset(); updatePips(); updateSVG(); updateUI(); break;
+            case 'h': console.log(controller.getHint()); updateUI(); break;
             
             // debug
             case '`':
@@ -640,6 +685,7 @@
         // controller.reset();
         updatePips();
         updateSVG();
+        updateUI();
         // pipTitleTop.innerHTML = `New lock. Solvable in ${controller.minMoves} moves.`;
 
     </script>
