@@ -6,11 +6,15 @@
 	<style>
         :root {
             --color-hud: #33f0ff;
+            /* --color-hud: #ff9911; */
             --color-success: #77ff46;
             --color-fail: #dd1e28;
             --filter-glow-hud: drop-shadow(0 0 2px #00aadd) drop-shadow(0 0 100px #000000);
+            /* --filter-glow-hud: drop-shadow(0 0 2px #aa8811) drop-shadow(0 0 100px #000000); */
             --filter-glow-success: drop-shadow(0 0 2px #55dd22) drop-shadow(0 0 100px #000000);
             --filter-glow-fail: drop-shadow(0 0 2px #990811) drop-shadow(0 0 100px #000000);
+            --filter-frame-glow-hud: drop-shadow(0 0 4px #00aadd);
+            /* --filter-frame-glow-hud: drop-shadow(0 0 4px #aa8811); */
 
             --difficulty-open-height: 8em;
             --difficulty-closed-height: 4em;
@@ -75,7 +79,7 @@
 
         .frame-top, .frame-bot {
             border: 1px solid var(--color-hud);
-            filter: drop-shadow(0 0 4px #00ffff);
+            filter: var(--filter-frame-glow-hud);
             display: inline-block;
             position: absolute;
             height: 1.25em;
@@ -92,7 +96,7 @@
         }
         .frame-left, .frame-right {
             border: 1px solid var(--color-hud);
-            filter: drop-shadow(0 0 4px #00ffff);
+            filter: var(--filter-frame-glow-hud);
             display: inline-block;
             position: absolute;
             height: 100%;
@@ -464,7 +468,7 @@
             case 'ArrowDown':  controlsDown.style.borderWidth = '2px'; break;
             case ' ':          controlsCenter.style.borderWidth = '2px'; break;
             }
-        })
+        });
 
         // init
         console.log(MSG_INSTRUCTIONS);
